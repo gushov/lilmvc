@@ -4,37 +4,36 @@
 /*global assert */
 
 var buster = typeof buster !== 'undefined' ? buster : require("buster");
-var lilmvc = typeof module === 'undefined' ? require('lilmvc') : require('../lib/lilmvc');
+var LilController = require('../lib/lilcontroller', 'lilcontroller');
 
 buster.testCase("LilController", {
 
-    "creates view with bus": function () {
+  "creates view with bus": function () {
 
-      var LilController = lilmvc.LilController;
-      var createSpy = this.spy();
-      var initSpy = this.spy();
-      var view = { create: createSpy };
+    var createSpy = this.spy();
+    var initSpy = this.spy();
+    var view = { create: createSpy };
 
-      var KidController = LilController.extend({
+    var KidController = LilController.extend({
 
-        events: [
-          'WAKE_UP',
-          'FEED',
-          'PUT_TO_BED'
-        ],
+      events: [
+        'WAKE_UP',
+        'FEED',
+        'PUT_TO_BED'
+      ],
 
-        init: initSpy
+      init: initSpy
 
-      });
+    });
 
-      var kidController = KidController.create(view, '.iver');
+    var kidController = KidController.create(view, '.iver');
 
-      assert.calledWith(createSpy,  kidController.bus, '.iver');
-      assert.calledWith(initSpy,  kidController.bus);
-      assert.equals(kidController.bus.ev.WAKE_UP, 'WAKE_UP');
-      assert.equals(kidController.bus.ev.FEED, 'FEED');
-      assert.equals(kidController.bus.ev.PUT_TO_BED, 'PUT_TO_BED');
+    assert.calledWith(createSpy,  kidController.bus, '.iver');
+    assert.calledWith(initSpy,  kidController.bus);
+    assert.equals(kidController.bus.ev.WAKE_UP, 'WAKE_UP');
+    assert.equals(kidController.bus.ev.FEED, 'FEED');
+    assert.equals(kidController.bus.ev.PUT_TO_BED, 'PUT_TO_BED');
 
-    }
+  }
 
 });

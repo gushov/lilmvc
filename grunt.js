@@ -24,7 +24,12 @@ module.exports = function(grunt) {
     },
     concat: {
       dist: {
-        src: ['<banner:meta.banner>', '<file_strip_banner:lib/<%= pkg.name %>.js>'],
+        src: [
+          '<banner:meta.banner>',
+          '<file_strip_banner:lib/lilbus.js>',
+          '<file_strip_banner:lib/lilview.js>',
+          '<file_strip_banner:lib/lilcontroller.js>'
+        ],
         dest: 'dist/<%= pkg.name %>.js'
       }
     },
