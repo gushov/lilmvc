@@ -4,7 +4,8 @@
 /*global assert */
 
 var buster = typeof buster !== 'undefined' ? buster : require("buster");
-var LilView = require('../lib/lilview', 'lilview');
+var lilmvc = typeof module !== 'undefined' ? require('../lib/lilmvc') : require('lilmvc');
+var LilView = lilmvc.view;
 
 buster.testCase("LilView", {
 

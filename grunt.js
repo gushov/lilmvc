@@ -14,6 +14,46 @@ module.exports = function(grunt) {
     lint: {
       files: ['grunt.js', 'lib/**/*.js', 'test/*.js']
     },
+    mdlldr: {
+      lil_: {
+        root: './node_modules/lil_/lib',
+        src: ['lil_.js'],
+        dest: './build/lil_.js'
+      },
+      lilobj: {
+        root: './node_modules/lilobj/lib',
+        src: ['lilobj.js'],
+        dest: './build/lilobj.js',
+        overrides : { lil_: 'lil_' }
+      },
+      vladiator: {
+        root: './node_modules/vladiator/lib',
+        src: ['vladiator.js'],
+        dest: './build/vladiator.js',
+        overrides : { lil_: 'lil_' }
+      },
+      lilmodel: {
+        root: './node_modules/lilmodel/lib',
+        src: ['lilmodel.js'],
+        dest: './build/lilmodel.js',
+        overrides: {
+          lil_: 'lil_',
+          lilobj: 'lilobj',
+          vladiator: 'vladiator'
+        }
+      },
+      lilmvc: {
+        root: './lib',
+        src: ['lilmvc.js'],
+        dest: './build/lilmvc.js',
+        overrides: {
+          lil_: 'lil_',
+          lilobj: 'lilobj',
+          lilmodel: 'lilmodel',
+          vladiator: 'vladiator'
+        }
+      }
+    },
     buster: {
       test: {
         config: 'test/buster.js'
@@ -26,9 +66,12 @@ module.exports = function(grunt) {
       dist: {
         src: [
           '<banner:meta.banner>',
-          '<file_strip_banner:lib/lilbus.js>',
-          '<file_strip_banner:lib/lilview.js>',
-          '<file_strip_banner:lib/lilcontroller.js>'
+          '<file_strip_banner:node_modules/lilprovider/lib/lilprovider.js>',
+          '<file_strip_banner:build/lil_.js>',
+          '<file_strip_banner:build/lilobj.js>',
+          '<file_strip_banner:build/vladiator.js>',
+          '<file_strip_banner:build/lilmodel.js>',
+          '<file_strip_banner:build/<%= pkg.name %>.js>'
         ],
         dest: 'dist/<%= pkg.name %>.js'
       }
@@ -65,7 +108,8 @@ module.exports = function(grunt) {
   });
 
   // Default task.
-  grunt.registerTask('default', 'lint buster concat min');
+  grunt.registerTask('default', 'lint mdlldr concat min buster');
+  grunt.loadNpmTasks('grunt-mdlldr');
   grunt.loadNpmTasks('grunt-buster');
 
 };
