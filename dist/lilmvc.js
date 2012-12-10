@@ -1,4 +1,4 @@
-/*! lilmvc - v0.0.0 - 2012-11-15
+/*! lilmvc - v0.0.1 - 2012-12-10
  * Copyright (c) 2012 August Hovland <gushov@gmail.com>; Licensed MIT */
 
 (function (ctx) {
@@ -135,38 +135,73 @@ module.exports = {
 
   },
 
-  extend: function (obj, src) {
+  walk: function (target, source, func, fill) {
 
-    this.eachIn(src, function (name, value) {
+    var self = this;
 
-      var type = this.typeOf(value);
+    var walkObj = function (target, source) {
 
-      switch (type) {
-        case 'object':
-          obj[name] = obj[name] || {};
-          this.extend(obj[name] || {}, value);
-          break;
-        case 'boolean':
-          obj[name] = obj[name] && value;
-          break;
-        default:
-          obj[name] = value;
-          break;
+      self.eachIn(source, function (name, obj) {
+        step(target[name], obj, name, target);
+      });
+
+    };
+
+    var step = function (target, source, name, parent) {
+
+      var type = self.typeOf(source);
+
+      if (type === 'object') {
+
+        if (!target && parent && fill) {
+          target = parent[name] = {};
+        }
+        
+        walkObj(target, source);
+
+      } else {
+        func.call(parent, target, source, name);
       }
 
-      return obj;
+    };
 
-    }, this);
+    step(target, source);
+
+  },
+
+  extend: function (obj, src) {
+
+    this.walk(obj, src, function (target, src, name) {
+      this[name] = src;
+    }, true);
+
+    return obj;
 
   },
 
   defaults: function (obj, defaults) {
 
-    this.eachIn(defaults, function (name, value) {
-      if (!obj[name]) { obj[name] = value; }
-    });
+    this.walk(obj, defaults, function (target, src, name) {
+
+      if (!target) {
+        this[name] = src;
+      }
+
+    }, true);
 
     return obj;
+
+  },
+
+  match: function (obj, test) {
+
+    var isMatch = true;
+
+    this.walk(obj, test, function (target, src) {
+      isMatch = (target === src);
+    });
+
+    return isMatch;
 
   },
 
@@ -197,7 +232,25 @@ module.exports = {
 
 }, true);
 
-provide('lilobj', function (require, module, exports) {
+provide('lilobj/arr', function (require, module, exports) {
+
+/*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
+  newcap:true, noarg:true, sub:true, undef:true, boss:true,
+  strict:false, eqnull:true, browser:true, node:true */
+
+var obj = require('./obj');
+var _ = require('lil_');
+
+var arr = Object.create(Array.prototype);
+_.eachIn(obj, function (name, value) {
+  arr[name] = value;
+});
+
+module.exports = arr; 
+
+
+}, true);
+provide('lilobj/obj', function (require, module, exports) {
 
 /*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
   newcap:true, noarg:true, sub:true, undef:true, boss:true,
@@ -206,6 +259,14 @@ provide('lilobj', function (require, module, exports) {
 var _ = require('lil_');
 
 module.exports = {
+
+  isA: function (prototype) {
+
+    function D() {}
+    D.prototype = prototype;
+    return this instanceof D;
+
+  },
 
   extend: function (props) {
 
@@ -231,6 +292,22 @@ module.exports = {
 
   }
 
+};
+
+
+}, true);
+provide('lilobj', function (require, module, exports) {
+
+/*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
+  newcap:true, noarg:true, sub:true, undef:true, boss:true,
+  strict:false, eqnull:true, browser:true, node:true */
+
+var obj = require('./lilobj/obj');
+var arr = require('./lilobj/arr');
+
+module.exports = {
+  obj: obj,
+  arr: arr
 };
 
 
@@ -262,6 +339,10 @@ var validator = {
     return typeof value === 'string';
   },
 
+  boolean: function (value) {
+    return typeof value === 'boolean';
+  },
+
   length: function (value, min, max) {
 
     var isBigEnough = !min || value.length >= min;
@@ -270,8 +351,8 @@ var validator = {
 
   },
 
-  gte: function (name, value, min) {
-    return value < min;
+  gte: function (value, min) {
+    return value >= min;
   }
 
 };
@@ -322,18 +403,27 @@ provide('lilmodel/collection', function (require, module, exports) {
   newcap:true, noarg:true, sub:true, undef:true, boss:true,
   strict:false, eqnull:true, browser:true, node:true */
 
-var LilObj = require('lilobj');
+var arr = require('lilobj').arr;
 var _ = require('lil_');
 var syncr = require('./syncr');
 
-module.exports = LilObj.extend({
+function parser(ctx, model, next) {
+
+  return function (err, values) {
+
+    var instance = !err && model.create(values);
+    next.call(ctx, err, instance);
+
+  };
+
+}
+
+module.exports = arr.extend({
 
   construct: function (values) {
 
-    this.$ = [];
-
     _.each(values, function (value) {
-      this.$.push(this.model.create(value));
+      this.push(this.model.create(value));
     }, this);
 
     this.validate();
@@ -344,9 +434,9 @@ module.exports = LilObj.extend({
 
     var validation = { isValid: true, error: [] };
 
-    _.each(this.$, function ($) {
+    _.each(this, function (model) {
       
-      var v = $.validate();
+      var v = model.validate();
       validation.error.push(v.error);
       validation.isValid = validation.isValid && v.isValid;
 
@@ -356,9 +446,50 @@ module.exports = LilObj.extend({
 
   },
 
-  find: function (next) {
+  add: function (obj) {
+
+    var model;
+    if (obj.isA && obj.isA(this.model)) {
+      model = obj;
+    } else {
+      model = this.model.create(obj);
+    }
+
+    this.push(model);
+  },
+
+  remove: function (query) {
+
+    var index;
+
+    _.each(this, function (model, i) {
+
+      if (_.match(model, query)) {
+        index = i;
+      }
+
+    });
+
+    if (typeof index === 'number') {
+      this.splice(index, 1);
+    }
+
+  },
+
+  get: function (query) {
+
+    return this.filter(function (model) {
+      return _.match(model, query);
+    });
+
+  },
+
+  find: function (query, next, ctx) {
+
     var sync = syncr();
-    sync('find', this, next);
+    this.query = query;
+    sync('find', this, parser(ctx, this, next));
+
   }
 
 });
@@ -371,12 +502,41 @@ provide('lilmodel/model', function (require, module, exports) {
   newcap:true, noarg:true, sub:true, undef:true, boss:true,
   strict:false, eqnull:true, browser:true, node:true */
 
-var LilObj = require('lilobj');
+var obj = require('lilobj').obj;
 var _ = require('lil_');
 var vlad = require('vladiator');
 var syncr = require('./syncr');
 
-module.exports = LilObj.extend({
+function getter(name) {
+  return this.$[name];
+}
+
+function setter(name, value)   {
+
+  var model = this.children && this.children[name];
+
+  if (model && model.create && typeof value === 'object') {
+    this.$[name] = model.create(value);
+  } else if (model && typeof value === 'object') {
+    this.$[name] = this.create(value);
+  } else if (!model) {
+    this.$[name] = value;
+  }
+
+}
+
+function parser(ctx, model, next) {
+
+  return function (err, values) {
+
+    var instance = !err ? model.create(values) : null;
+    next.call(ctx, err, instance);
+
+  };
+
+}
+
+module.exports = obj.extend({
 
   construct: function (values) {
 
@@ -384,27 +544,9 @@ module.exports = LilObj.extend({
     var props = _.mapIn(this.rules, function (name, value) {
 
       return {
-
-        enumerable : true,
-
-        get: function () {
-          return this.$[name];
-        },
-
-        set: function (value) {
-
-          var model = this.children && this.children[name];
-
-          if (model && model.create && typeof value === 'object') {
-            this.$[name] = model.create(value);
-          } else if (model && typeof value === 'object') {
-            this.$[name] = this.create(value);
-          } else if (!model) {
-            this.$[name] = value;
-          }
-
-        }
-
+        enumerable: true,
+        get: getter.bind(this, name),
+        set: setter.bind(this, name)
       };
 
     }, this);
@@ -447,28 +589,32 @@ module.exports = LilObj.extend({
 
   },
 
-  save: function (next) {
+  save: function (next, ctx) {
 
     var sync = syncr();
     var method = this.$._id ? 'update' : 'create';
     var validation = this.validate();
 
     if (validation.isValid) {
-      sync(method, this, next);
+      sync(method, this, parser(ctx, this, next));
     } else {
-      next(validation.error, this);
+      next.call(ctx, validation.error, this);
     }
 
   },
 
-  fetch: function (next) {
+  fetch: function (next, ctx) {
+
     var sync = syncr();
-    sync('fetch', this, next);
+    sync('fetch', this, parser(ctx, this, next));
+
   },
 
-  destroy: function (next) {
+  destroy: function (next, ctx) {
+
     var sync = syncr();
-    sync('delete', this, next);
+    sync('destroy', this, parser(ctx, this, next));
+    
   }
 
 });
@@ -519,21 +665,21 @@ provide('lilmvc/view', function (require, module, exports) {
   newcap:true, noarg:true, sub:true, undef:true, boss:true,
   strict:false, eqnull:true, browser:true, node:true */
 
-var LilObj = require('lilobj');
+var obj = require('lilobj').obj;
+var template = require('./template');
+var dom = require('./dom');
 
-module.exports = LilObj.extend({
+module.exports = obj.extend({
 
   construct: function (bus, selector) {
-    this.el = this.attach(selector);
+    this.$ = dom();
+    this.el = this.$(selector);
     this.init(bus);
   },
 
-  template: function (viewObj) {
-    return viewObj;
-  },
-
-  attach: function (selector) {
-    return null;
+  template: function (id, viewObj) {
+    var engine = template();
+    return engine(id, viewObj);
   },
 
   init: function (bus) {}
@@ -548,17 +694,23 @@ provide('lilmvc/controller', function (require, module, exports) {
   newcap:true, noarg:true, sub:true, undef:true, boss:true,
   strict:false, eqnull:true, browser:true, node:true */
 
-var LilObj = require('lilobj');
-var LilBus = require('./bus');
+var obj = require('lilobj').obj;
+var _ = require('lil_');
+var Bus = require('./bus');
 
-module.exports = LilObj.extend({
+module.exports = obj.extend({
 
   events: [],
+  views: {},
 
-  construct: function (view, selector) {
+  construct: function (views) {
 
-    this.bus = LilBus.create(this.events);
-    this.view = view.create(this.bus, selector);
+    this.bus = Bus.create(this.events);
+
+    _.eachIn(views, function (selector, view) {
+      this.views[selector] = view.create(this.bus, selector);
+    }, this);
+
     this.init(this.bus);
 
   },
@@ -575,10 +727,10 @@ provide('lilmvc/bus', function (require, module, exports) {
   newcap:true, noarg:true, sub:true, undef:true, boss:true,
   strict:false, eqnull:true, browser:true, node:true */
 
-var LilObj = require('lilobj');
+var obj = require('lilobj').obj;
 var _ = require('lil_');
 
-module.exports = LilObj.extend({
+module.exports = obj.extend({
 
   construct: function (events) {
 
@@ -613,20 +765,65 @@ module.exports = LilObj.extend({
 
 
 }, true);
+provide('lilmvc/template', function (require, module, exports) {
+
+/*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
+  newcap:true, noarg:true, sub:true, undef:true, boss:true,
+  strict:false, eqnull:true, browser:true, node:true */
+
+var template = function (id, viewObj) {
+  return viewObj;
+};
+
+module.exports = function (handler) {
+
+  if (handler) { template = handler; }
+  return template;
+
+};
+
+}, true);
+provide('lilmvc/dom', function (require, module, exports) {
+
+/*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
+  newcap:true, noarg:true, sub:true, undef:true, boss:true,
+  strict:false, eqnull:true, browser:true, node:true */
+
+var $ = function (stuff) {
+  return this;
+};
+
+module.exports = function (handler) {
+
+  if (handler) { $ = handler; }
+  return $;
+
+};
+
+
+}, true);
 provide('lilmvc', function (require, module, exports) {
 
 /*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
   newcap:true, noarg:true, sub:true, undef:true, boss:true,
   strict:false, eqnull:true, browser:true, node:true */
 
+var dom = require('./lilmvc/dom');
+var template = require('./lilmvc/template');
 var bus = require('./lilmvc/bus');
 var controller = require('./lilmvc/controller');
 var view = require('./lilmvc/view');
+var lilmodel = require('lilmodel');
 
 module.exports = {
+  template: template,
+  dom: dom,
   bus: bus,
   controller: controller,
-  view: view
+  view: view,
+  syncr: lilmodel.syncr,
+  model: lilmodel.model,
+  collection: lilmodel.collection
 };
 
 

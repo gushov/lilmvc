@@ -27,7 +27,7 @@ buster.testCase("LilController", {
 
     });
 
-    var kidController = KidController.create(view, '.iver');
+    var kidController = KidController.create({ '.iver': view });
 
     assert.calledWith(createSpy,  kidController.bus, '.iver');
     assert.calledWith(initSpy,  kidController.bus);

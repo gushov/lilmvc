@@ -11,11 +11,11 @@ buster.testCase("LilView", {
 
   "should call static methods": function () {
 
-    var attachSpy = this.spy();
+    var domSpy = this.spy();
     var templateSpy = this.spy();
 
-    LilView.attach = attachSpy;
-    LilView.template = templateSpy;
+    lilmvc.dom(domSpy);
+    lilmvc.template(templateSpy);
 
     var TestView = LilView.extend({
 
@@ -32,7 +32,7 @@ buster.testCase("LilView", {
 
     var testView = TestView.create('FAKE_BUS', '.selector');
 
-    assert.calledWith(attachSpy, '.selector');
+    assert.calledWith(domSpy, '.selector');
     assert.calledWith(templateSpy, 'VIEW_OBJECT');
 
   }
