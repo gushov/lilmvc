@@ -1,5 +1,5 @@
-/*! lilmvc - v0.0.1 - 2012-12-10
- * Copyright (c) 2012 August Hovland <gushov@gmail.com>; Licensed MIT */
+/*! lilmvc - v0.0.2 - 2013-01-24
+ * Copyright (c) 2013 August Hovland <gushov@gmail.com>; Licensed MIT */
 
 (function (ctx) {
 
@@ -87,49 +87,107 @@ module.exports = {
 
   },
 
-  each: function (arr, func, ctx) {
+  each: function (thing, func, ctx) {
 
-    if (arr && arr.length) {
-      arr.forEach(func, ctx);
+    var type = this.typeOf(thing);
+    var keys;
+
+    if (type === 'array' && thing.length) {
+
+      thing.forEach(func, ctx);
+
+    } else if (type === 'object') {
+
+      keys = thing ? Object.keys(thing) : [];
+
+      keys.forEach(function (name, i) {
+        func.call(ctx, name, thing[name], i);
+      });
+
     }
 
   },
 
-  every: function (arr, func, ctx) {
+  every: function (thing, func, ctx) {
 
-    if (arr && arr.length) {
-      return arr.every(func, ctx);
+    var type = this.typeOf(thing);
+    var keys;
+
+    if (type === 'array' && thing.length) {
+
+      return thing.every(func, ctx);
+
+    } else if (type === 'object') {
+
+      keys = thing ? Object.keys(thing) : [];
+
+      return keys.every(function (name, i) {
+        return func.call(ctx, name, thing[name], i);
+      });
+
     }
+
     return false;
 
   },
 
-  map: function (arr, func, ctx) {
+  some: function (thing, func, ctx) {
 
-    if (arr && arr.length) {
-      return arr.map(func, ctx);
+    var type = this.typeOf(thing);
+    var keys;
+
+    if (type === 'array' && thing.length) {
+
+      return thing.some(func, ctx);
+
+    } else if (type === 'object') {
+
+      keys = thing ? Object.keys(thing) : [];
+
+      return keys.some(function (name, i) {
+        return func.call(ctx, name, thing[name], i);
+      });
+
     }
-    return [];
+
+    return false;
 
   },
 
-  eachIn: function (obj, func, ctx) {
+  map: function (thing, func, ctx) {
 
-    var keys = obj ? Object.keys(obj) : [];
+    var type = this.typeOf(thing);
+    var result = [];
 
-    keys.forEach(function (name, i) {
-      func.call(ctx, name, obj[name], i);
+    if (type === 'array' && thing.length) {
+
+      return thing.map(func, ctx);
+
+    } else if (type === 'object') {
+
+      result = {};
+
+      this.each(thing, function (name, obj, i) {
+        result[name] = func.call(this, name, obj, i);
+      }, ctx);
+
+    }
+
+    return result;
+
+  },
+
+  withOut: function (arr, value) {
+
+    var result = [];
+
+    this.each(arr, function (element) {
+
+      if (element !== value) {
+        result.push(element);
+      }
+
     });
-
-  },
-
-  mapIn: function (obj, func, ctx) {
-
-    var result = {};
-
-    this.eachIn(obj, function (name, obj, i) {
-      result[name] = func.call(this, name, obj, i);
-    }, ctx);
 
     return result;
 
@@ -141,7 +199,7 @@ module.exports = {
 
     var walkObj = function (target, source) {
 
-      self.eachIn(source, function (name, obj) {
+      self.each(source, function (name, obj) {
         step(target[name], obj, name, target);
       });
 
@@ -169,11 +227,18 @@ module.exports = {
 
   },
 
-  extend: function (obj, src) {
+  extend: function () {
 
-    this.walk(obj, src, function (target, src, name) {
-      this[name] = src;
-    }, true);
+    var args = Array.prototype.slice.call(arguments);
+    var obj = args.shift();
+
+    this.each(args, function (src) {
+
+      this.walk(obj, src, function (target, src, name) {
+        this[name] = src;
+      }, true);
+
+    }, this);
 
     return obj;
 
@@ -216,16 +281,6 @@ module.exports = {
 
     return picked;
 
-  },
-
-  pushOn: function (obj, prop, value) {
-
-    if (obj[prop] && typeof obj[prop].push === 'function') {
-      obj[prop].push(value);
-    } else if ( typeof obj[prop] === 'undefined' ) {
-      obj[prop] = [value];
-    }
-
   }
 
 };
@@ -236,17 +291,56 @@ provide('lilobj/arr', function (require, module, exports) {
 
 /*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
   newcap:true, noarg:true, sub:true, undef:true, boss:true,
-  strict:false, eqnull:true, browser:true, node:true */
+  strict:false, eqnull:true, browser:true, node:true,
+  proto:true */
 
-var obj = require('./obj');
 var _ = require('lil_');
 
-var arr = Object.create(Array.prototype);
-_.eachIn(obj, function (name, value) {
-  arr[name] = value;
-});
+function Arr() {
 
-module.exports = arr; 
+  var arr = [];
+  arr.push.apply(arr, arguments);
+  arr.__proto__ = Arr.prototype;
+
+  return arr;
+
+}
+
+Arr.prototype = [];
+
+Arr.prototype.isA = function (prototype) {
+
+  function D() {}
+  D.prototype = prototype;
+  return this instanceof D;
+
+};
+
+Arr.prototype.extend = function (props) {
+
+    Arr.prototype = this;
+    var child = new Arr();
+
+    _.each(props, function (name) {
+      child[name] = props[name];
+    });
+
+    return child;
+};
+
+Arr.prototype.create = function () {
+
+    Arr.prototype = this;
+    var child = new Arr();
+
+    if (child.construct !== undefined) {
+      child.construct.apply(child, arguments);
+    }
+
+    return child;
+};
+
+module.exports = new Arr();
 
 
 }, true);
@@ -272,7 +366,7 @@ module.exports = {
 
     var result = Object.create(this);
 
-    _.eachIn(props, function (name, value) {
+    _.each(props, function (name, value) {
       result[name] = value;
     });
 
@@ -541,7 +635,7 @@ module.exports = obj.extend({
   construct: function (values) {
 
     this.$ = {};
-    var props = _.mapIn(this.rules, function (name, value) {
+    var props = _.map(this.rules, function (name, value) {
 
       return {
         enumerable: true,
@@ -556,7 +650,7 @@ module.exports = obj.extend({
     values = _.pick(values, this.rules);
     _.defaults(values, this.defaults);
 
-    _.eachIn(values, function (name, value) {
+    _.each(values, function (name, value) {
       this[name] = value;
     }, this);
 
@@ -568,7 +662,7 @@ module.exports = obj.extend({
 
     var validation = { isValid: true, error: {} };
 
-    _.eachIn(this.rules, function (prop, rules) {
+    _.each(this.rules, function (prop, rules) {
 
       var value = this[prop];
       var v;
@@ -659,6 +753,193 @@ module.exports = {
 
 }, true);
 
+provide('lilrouter/win', function (require, module, exports) {
+
+/*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
+  newcap:true, noarg:true, sub:true, undef:true, boss:true,
+  strict:false, eqnull:true, browser:true, node:true */
+
+var win = typeof window === 'object' && window;
+
+module.exports = function (winObj) {
+
+  if (winObj) {
+    win = winObj;
+  }
+
+  return {
+
+    go: function (state, url) {
+      win.history.pushState(state, '', url);
+    },
+
+    location: function (loc) {
+
+      if (loc) {
+        win.location = loc;
+      }
+      return win.location.pathname;
+
+    },
+
+    onpopstate: function (func, ctx) {
+      win.onpopstate = func.bind(ctx);
+    }
+
+  };
+
+};
+
+
+}, true);
+provide('lilrouter/matcher', function (require, module, exports) {
+
+/*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
+  newcap:true, noarg:true, sub:true, undef:true, boss:true,
+  strict:false, eqnull:true, browser:true, node:true */
+
+var _ = require('lil_');
+
+module.exports = function (patterns, route) {
+
+  var routeTokens = _.withOut(route.split('/'), '');
+  var params, handler;
+
+  if (route === '/') {
+
+    return {
+      handler: patterns['/'],
+      params: {}
+    };
+
+  }
+
+  _.some(patterns, function (pattern, func) {
+
+    var patternTokens = _.withOut(pattern.split('/'), '');
+    var isCountEqual = patternTokens.length === routeTokens.length;
+    params = {};
+    handler = func;
+
+    if (pattern.charAt(0) !== '/') {
+      patternTokens.reverse();
+      routeTokens.reverse();
+      isCountEqual = true;
+    }
+
+    return isCountEqual && _.every(patternTokens, function (token, i) {
+
+      if (token.indexOf(':') === 0) {
+
+        params[token.substr(1)] = routeTokens[i];
+        return true;
+
+      } else if (token === routeTokens[i]) {
+        return true;
+      } else {
+        return false;
+      }
+
+
+    });
+
+  });
+
+  return {
+    handler: handler,
+    params: params
+  };
+
+};
+
+}, true);
+provide('lilrouter/router', function (require, module, exports) {
+
+/*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
+  newcap:true, noarg:true, sub:true, undef:true, boss:true,
+  strict:false, eqnull:true, browser:true, node:true */
+
+var _ = require('lil_');
+var obj = require('lilobj').obj;
+var matcher = require('./matcher');
+var win = require('./win');
+
+module.exports = obj.extend({
+
+  win: undefined,
+  start: undefined,
+  routes: {
+    get: {},
+    post: {}
+  },
+
+  construct: function (config) {
+
+    this.win = win();
+    this.start = this.win.location();
+
+    _.each(this.routes, function (method) {
+
+      _.each(config[method], function (name, init) {
+        this.routes[method][name] = init;
+      }, this);
+
+    }, this);
+
+    this.ctx = config.init(this);
+
+    this.win.onpopstate(function (ev) {
+
+      if (ev.state) {
+        this.route(ev.state.method, this.win.location(), ev.state.body);
+      } else {
+        this.route('get', this.start);
+      }
+
+    }, this);
+
+    this.route('get', this.start);
+
+  },
+
+  route: function (method, path, body) {
+
+    var match = matcher(this.routes[method], path);
+    var ctx = _.extend({}, this.ctx, {
+      params: match.params,
+      body: body || {}
+    });
+
+    match.handler(ctx, this);
+
+  },
+
+  get: function (path) {
+    this.win.go({ method: 'get' }, path);
+    this.route('get', path);
+  },
+
+  post: function (path, body) {
+    this.win.go({ method: 'post', body: body }, path);
+    this.route('post', path, body);
+  }
+
+});
+
+
+}, true);
+provide('lilrouter', function (require, module, exports) {
+
+/*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
+  newcap:true, noarg:true, sub:true, undef:true, boss:true,
+  strict:false, eqnull:true, browser:true, node:true */
+
+var router = require('./lilrouter/router');
+
+module.exports = router;
+
+}, true);
+
 provide('lilmvc/view', function (require, module, exports) {
 
  /*jshint curly:true, eqeqeq:true, immed:true, latedef:true,
@@ -707,7 +988,7 @@ module.exports = obj.extend({
 
     this.bus = Bus.create(this.events);
 
-    _.eachIn(views, function (selector, view) {
+    _.each(views, function (selector, view) {
       this.views[selector] = view.create(this.bus, selector);
     }, this);
 
@@ -814,6 +1095,7 @@ var bus = require('./lilmvc/bus');
 var controller = require('./lilmvc/controller');
 var view = require('./lilmvc/view');
 var lilmodel = require('lilmodel');
+var lilrouter = require('lilrouter');
 
 module.exports = {
   template: template,
@@ -823,7 +1105,8 @@ module.exports = {
   view: view,
   syncr: lilmodel.syncr,
   model: lilmodel.model,
-  collection: lilmodel.collection
+  collection: lilmodel.collection,
+  router: lilrouter
 };
 
 

@@ -42,6 +42,15 @@ module.exports = function(grunt) {
           vladiator: 'vladiator'
         }
       },
+      lilrouter: {
+        root: './node_modules/lilrouter/lib',
+        src: ['lilrouter.js'],
+        dest: './build/lilrouter.js',
+        overrides: {
+          lil_: 'lil_',
+          lilobj: 'lilobj'
+        }
+      },
       lilmvc: {
         root: './lib',
         src: ['lilmvc.js'],
@@ -50,6 +59,7 @@ module.exports = function(grunt) {
           lil_: 'lil_',
           lilobj: 'lilobj',
           lilmodel: 'lilmodel',
+          lilrouter: 'lilrouter',
           vladiator: 'vladiator'
         }
       }
@@ -71,6 +81,7 @@ module.exports = function(grunt) {
           '<file_strip_banner:build/lilobj.js>',
           '<file_strip_banner:build/vladiator.js>',
           '<file_strip_banner:build/lilmodel.js>',
+          '<file_strip_banner:build/lilrouter.js>',
           '<file_strip_banner:build/<%= pkg.name %>.js>'
         ],
         dest: 'dist/<%= pkg.name %>.js'

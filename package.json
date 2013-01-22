@@ -2,7 +2,7 @@
   "author": "August Hovland <gushov@gmail.com>",
   "name": "lilmvc",
   "description": "A li'l MVC framework",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "repository": {
     "type": "git",
     "url": "git://github.com/gushov/lilmvc.git"
@@ -14,7 +14,8 @@
     "lil_": ">= 0.0.x",
     "lilobj": ">= 0.0.x",
     "vladiator": ">= 0.0.x",
-    "lilmodel": ">= 0.0.x"
+    "lilmodel": ">= 0.0.x",
+    "lilrouter": ">= 0.0.x"
   },
   "devDependencies": {
     "grunt": ">= 0.3.x",
