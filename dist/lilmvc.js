@@ -1,4 +1,4 @@
-/*! lilmvc - v0.0.6 - 2013-02-10
+/*! lilmvc - v0.0.7 - 2013-02-10
  * Copyright (c) 2013 August Hovland <gushov@gmail.com>; Licensed MIT */
 
 (function (ctx) {
